@@ -8,4 +8,4 @@ dist/
 .ruff_cache/
 *.egg-info/
 .DS_Store
-.wiki-mcp/
+.mdrag/
