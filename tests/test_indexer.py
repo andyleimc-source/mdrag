@@ -2,7 +2,6 @@
 
 from pathlib import Path
 
-import pytest
 
 from wiki_mcp.indexer import iter_markdown_files, parse_frontmatter, DEFAULT_EXCLUDES
 
