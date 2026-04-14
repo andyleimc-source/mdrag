@@ -1,4 +1,4 @@
-# wiki-mcp
+# mdrag
 
 > Give any local Markdown folder a semantic-search MCP server. Runs entirely offline.
 
@@ -8,14 +8,14 @@ Turn `~/Desktop/sales/`, `~/Desktop/notes/`, or any directory full of Markdown f
 - 🔒 **Fully local**: no API keys, no cloud — embeddings run on your machine
 - ⚡ **Incremental indexing**: only re-embed files that changed
 - 🧠 **Any embedding model**: default is Chinese-optimized `bge-small-zh-v1.5`; English / multilingual models work too
-- 📦 **Self-contained**: each vault's vector DB lives inside the folder (`.wiki-mcp/`), move it anywhere
+- 📦 **Self-contained**: each vault's vector DB lives inside the folder (`.mdrag/`), move it anywhere
 
 ---
 
 ## Installation
 
 ```bash
-pip install wiki-mcp
+pip install mdrag
 ```
 
 Requires Python ≥ 3.10.
@@ -29,26 +29,26 @@ Let's say Bob has a folder `~/Desktop/sales/` full of meeting notes, proposals, 
 ### 1. Register the MCP server (once, globally)
 
 ```bash
-claude mcp add wiki --scope user -- wiki-mcp serve
+claude mcp add mdrag --scope user -- mdrag serve
 ```
 
-This tells Claude Code "there's an MCP server called `wiki` — launch it with `wiki-mcp serve` when needed". You'll only do this once per machine.
+This tells Claude Code "there's an MCP server called `mdrag` — launch it with `mdrag serve` when needed". You'll only do this once per machine.
 
 ### 2. Register your doc folder as a vault
 
 ```bash
-wiki-mcp vault add sales ~/Desktop/sales
+mdrag vault add sales ~/Desktop/sales
 ```
 
-The first time you run this, a ~100MB embedding model downloads (once), then all `.md` files under `~/Desktop/sales/` get indexed. A `.wiki-mcp/` subfolder is created inside `sales/` to hold the vector database.
+The first time you run this, a ~100MB embedding model downloads (once), then all `.md` files under `~/Desktop/sales/` get indexed. A `.mdrag/` subfolder is created inside `sales/` to hold the vector database.
 
 ### 3. Use it from Claude Code
 
 Open Claude Code in any project. Ask:
 
-> "Use the wiki MCP to search my sales vault for the Q4 pipeline review"
+> "Use the mdrag MCP to search my sales vault for the Q4 pipeline review"
 
-Claude will call `mcp__wiki__search(vault="sales", query="Q4 pipeline review")` and return the top matching documents.
+Claude will call `mcp__mdrag__search(vault="sales", query="Q4 pipeline review")` and return the top matching documents.
 
 ---
 
@@ -57,15 +57,15 @@ Claude will call `mcp__wiki__search(vault="sales", query="Q4 pipeline review")` 
 No new MCP config needed — just register another vault:
 
 ```bash
-wiki-mcp vault add marketing ~/Desktop/marketing
-wiki-mcp vault add notes ~/Documents/notes
+mdrag vault add marketing ~/Desktop/marketing
+mdrag vault add notes ~/Documents/notes
 ```
 
 All vaults are visible through the same MCP server. Claude calls:
 ```
-mcp__wiki__list_vaults()                          → see all vaults
-mcp__wiki__search(vault="marketing", query="...")
-mcp__wiki__search(vault="notes", query="...")
+mcp__mdrag__list_vaults()                          → see all vaults
+mcp__mdrag__search(vault="marketing", query="...")
+mcp__mdrag__search(vault="notes", query="...")
 ```
 
 ---
@@ -73,12 +73,12 @@ mcp__wiki__search(vault="notes", query="...")
 ## CLI reference
 
 ```
-wiki-mcp serve                          Start the MCP stdio server
-wiki-mcp vault add NAME PATH            Register a directory and index it
-wiki-mcp vault list                     Show all vaults
-wiki-mcp vault info NAME                Show vault details
-wiki-mcp vault reindex NAME [--full]    Re-index (incremental or full)
-wiki-mcp vault remove NAME [--purge]    Unregister (and optionally delete .wiki-mcp/)
+mdrag serve                          Start the MCP stdio server
+mdrag vault add NAME PATH            Register a directory and index it
+mdrag vault list                     Show all vaults
+mdrag vault info NAME                Show vault details
+mdrag vault reindex NAME [--full]    Re-index (incremental or full)
+mdrag vault remove NAME [--purge]    Unregister (and optionally delete .mdrag/)
 ```
 
 Common options:
@@ -90,7 +90,7 @@ Common options:
 
 ## MCP tools exposed
 
-When `wiki-mcp serve` is running, these tools are available to the AI client:
+When `mdrag serve` is running, these tools are available to the AI client:
 
 | Tool | Purpose |
 |------|---------|
@@ -103,7 +103,7 @@ When `wiki-mcp serve` is running, these tools are available to the AI client:
 
 ## Frontmatter (optional)
 
-If your Markdown files have YAML frontmatter, wiki-mcp will use it:
+If your Markdown files have YAML frontmatter, mdrag will use it:
 
 ```markdown
 ---
@@ -120,7 +120,7 @@ summary: Overview of deals in play for Q4 2026.
 - `tags` — searchable via the `tags` parameter of `search`
 - `summary` — shown in search results
 
-No frontmatter? It still works — wiki-mcp auto-generates a preview from the file body.
+No frontmatter? It still works — mdrag auto-generates a preview from the file body.
 
 ---
 
@@ -135,12 +135,12 @@ No frontmatter? It still works — wiki-mcp auto-generates a preview from the fi
 
 Change the model when registering a vault:
 ```bash
-wiki-mcp vault add notes ~/Documents/notes --model BAAI/bge-small-en-v1.5
+mdrag vault add notes ~/Documents/notes --model BAAI/bge-small-en-v1.5
 ```
 
-After changing the model on an existing vault (edit `~/.wiki-mcp/vaults.yaml`), run a full rebuild:
+After changing the model on an existing vault (edit `~/.mdrag/vaults.yaml`), run a full rebuild:
 ```bash
-wiki-mcp vault reindex notes --full
+mdrag vault reindex notes --full
 ```
 
 ---
@@ -149,14 +149,14 @@ wiki-mcp vault reindex notes --full
 
 ```
  ┌────────────────────┐        ┌──────────────────────┐
- │ ~/Desktop/sales/   │        │ ~/.wiki-mcp/         │
+ │ ~/Desktop/sales/   │        │ ~/.mdrag/         │
  │   meeting-01.md    │        │   vaults.yaml        │  ← registry
  │   proposal.md      │        └──────────────────────┘
- │   .wiki-mcp/       │ ← LanceDB vector store (per-vault)
+ │   .mdrag/       │ ← LanceDB vector store (per-vault)
  │     docs.lance/    │
  └──────────┬─────────┘
             │
-            │ wiki-mcp serve
+            │ mdrag serve
             ▼
  ┌──────────────────────────┐
  │   FastMCP stdio server   │
@@ -170,8 +170,8 @@ wiki-mcp vault reindex notes --full
      Claude Code / Cursor / Cline
 ```
 
-- Vault registry is at `~/.wiki-mcp/vaults.yaml`
-- Each vault's vector database lives inside the vault directory at `.wiki-mcp/` — self-contained, portable
+- Vault registry is at `~/.mdrag/vaults.yaml`
+- Each vault's vector database lives inside the vault directory at `.mdrag/` — self-contained, portable
 - Embeddings use `sentence-transformers`, stored in [LanceDB](https://lancedb.github.io/lancedb/)
 - MCP server is built on [FastMCP](https://github.com/modelcontextprotocol/python-sdk)
 
@@ -181,33 +181,33 @@ wiki-mcp vault reindex notes --full
 
 ### How do I update the index after editing files?
 ```bash
-wiki-mcp vault reindex sales
+mdrag vault reindex sales
 ```
 It's incremental — only files with changed `mtime` are re-embedded.
 
 ### Can I automate re-indexing?
 Yes. Add to cron (Linux/macOS):
 ```
-0 * * * * /path/to/wiki-mcp vault reindex sales
+0 * * * * /path/to/mdrag vault reindex sales
 ```
 Or use `launchd` on macOS / Task Scheduler on Windows.
 
 ### Does it support PDF, DOCX, etc.?
-Not yet. Convert to Markdown first (e.g. with [pandoc](https://pandoc.org/)) and point wiki-mcp at the result.
+Not yet. Convert to Markdown first (e.g. with [pandoc](https://pandoc.org/)) and point mdrag at the result.
 
 ### Model download is slow / fails
 If you're in China, set a HuggingFace mirror:
 ```bash
 export HF_ENDPOINT=https://hf-mirror.com
-wiki-mcp vault add sales ~/Desktop/sales
+mdrag vault add sales ~/Desktop/sales
 ```
 
 ### Where is the vector data stored?
-- Vault registry: `~/.wiki-mcp/vaults.yaml`
-- Each vault's vectors: `<vault_path>/.wiki-mcp/docs.lance/`
+- Vault registry: `~/.mdrag/vaults.yaml`
+- Each vault's vectors: `<vault_path>/.mdrag/docs.lance/`
 
 ### Can I share a vault across machines?
-Yes — the `.wiki-mcp/` folder is self-contained. Sync the whole vault directory (via Dropbox, rsync, git-lfs, whatever) and `wiki-mcp vault add <name> <path>` on the other machine. No re-indexing needed as long as the embedding model matches.
+Yes — the `.mdrag/` folder is self-contained. Sync the whole vault directory (via Dropbox, rsync, git-lfs, whatever) and `mdrag vault add <name> <path>` on the other machine. No re-indexing needed as long as the embedding model matches.
 
 ---
 
@@ -216,15 +216,15 @@ Yes — the `.wiki-mcp/` folder is self-contained. Sync the whole vault director
 ### Claude Code
 
 ```bash
-claude mcp add wiki --scope user -- wiki-mcp serve
+claude mcp add mdrag --scope user -- mdrag serve
 ```
 
 Or manually in `~/.mcp.json`:
 ```json
 {
   "mcpServers": {
-    "wiki": {
-      "command": "wiki-mcp",
+    "mdrag": {
+      "command": "mdrag",
       "args": ["serve"]
     }
   }
@@ -233,15 +233,15 @@ Or manually in `~/.mcp.json`:
 
 ### Cursor / Cline / other MCP clients
 
-Add the same stdio command to your client's MCP configuration. The command is `wiki-mcp serve` — it communicates over stdio following the MCP protocol.
+Add the same stdio command to your client's MCP configuration. The command is `mdrag serve` — it communicates over stdio following the MCP protocol.
 
 ---
 
 ## Development
 
 ```bash
-git clone https://github.com/andyleimc-source/wiki-mcp
-cd wiki-mcp
+git clone https://github.com/andyleimc-source/mdrag
+cd mdrag
 python -m venv .venv
 .venv/bin/pip install -e .[dev]
 .venv/bin/pytest
@@ -249,8 +249,8 @@ python -m venv .venv
 
 Try the example vault shipped in the repo:
 ```bash
-wiki-mcp vault add demo ./examples/sample-vault
-wiki-mcp vault list
+mdrag vault add demo ./examples/sample-vault
+mdrag vault list
 ```
 
 ---

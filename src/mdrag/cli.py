@@ -1,4 +1,4 @@
-"""wiki-mcp CLI entry point."""
+"""mdrag CLI entry point."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from .config import DEFAULT_MODEL, VaultRegistry
 
 
 @click.group()
-@click.version_option(__version__, prog_name="wiki-mcp")
+@click.version_option(__version__, prog_name="mdrag")
 def main() -> None:
     """Give any local Markdown folder a semantic-search MCP server."""
 
@@ -45,7 +45,7 @@ def vault_add(name: str, path: str, model: str, no_index: bool) -> None:
     click.echo(f"   Data dir: {v.vector_dir}")
 
     if no_index:
-        click.echo("Skipped indexing (--no-index). Run: wiki-mcp vault reindex " + name)
+        click.echo("Skipped indexing (--no-index). Run: mdrag vault reindex " + name)
         return
 
     _run_index(reg, name, full=True)
@@ -57,7 +57,7 @@ def vault_list() -> None:
     reg = VaultRegistry()
     vaults = reg.list()
     if not vaults:
-        click.echo("No vaults. Add one: wiki-mcp vault add <name> <path>")
+        click.echo("No vaults. Add one: mdrag vault add <name> <path>")
         return
     click.echo(f"{'NAME':<20} {'DOCS':>6} {'INDEXED':<20} PATH")
     for v in vaults:
@@ -75,7 +75,7 @@ def vault_reindex(name: str, full: bool) -> None:
 
 @vault.command("remove")
 @click.argument("name")
-@click.option("--purge", is_flag=True, help="Also delete the .wiki-mcp/ data dir.")
+@click.option("--purge", is_flag=True, help="Also delete the .mdrag/ data dir.")
 def vault_remove(name: str, purge: bool) -> None:
     """Unregister a vault."""
     import shutil

@@ -1,4 +1,4 @@
-"""Vault registry: reads/writes ~/.wiki-mcp/vaults.yaml."""
+"""Vault registry: reads/writes ~/.mdrag/vaults.yaml."""
 
 from __future__ import annotations
 
@@ -9,10 +9,10 @@ from typing import Optional
 
 import yaml
 
-CONFIG_DIR = Path.home() / ".wiki-mcp"
+CONFIG_DIR = Path.home() / ".mdrag"
 REGISTRY_FILE = CONFIG_DIR / "vaults.yaml"
 DEFAULT_MODEL = "BAAI/bge-small-zh-v1.5"
-VAULT_DATA_DIR = ".wiki-mcp"
+VAULT_DATA_DIR = ".mdrag"
 
 
 @dataclass

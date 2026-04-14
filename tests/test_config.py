@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from wiki_mcp.config import VaultRegistry, DEFAULT_MODEL
+from mdrag.config import VaultRegistry, DEFAULT_MODEL
 
 
 def _reg(tmp_path: Path) -> VaultRegistry:

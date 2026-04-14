@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "wiki-mcp"
+name = "mdrag"
 version = "0.1.0"
 description = "Give any local Markdown folder a semantic-search MCP server"
 readme = "README.md"
@@ -12,7 +12,7 @@ requires-python = ">=3.10"
 authors = [
     {name = "Andy Lei", email = "leimingcan@icloud.com"}
 ]
-keywords = ["mcp", "wiki", "markdown", "semantic-search", "rag", "claude", "lancedb"]
+keywords = ["mcp", "markdown", "rag", "semantic-search", "rag", "claude", "lancedb"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "License :: OSI Approved :: MIT License",
@@ -40,14 +40,14 @@ dev = [
 ]
 
 [project.scripts]
-wiki-mcp = "wiki_mcp.cli:main"
+mdrag = "mdrag.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/andyleimc-source/wiki-mcp"
-Issues = "https://github.com/andyleimc-source/wiki-mcp/issues"
+Homepage = "https://github.com/andyleimc-source/mdrag"
+Issues = "https://github.com/andyleimc-source/mdrag/issues"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/wiki_mcp"]
+packages = ["src/mdrag"]
 
 [tool.ruff]
 line-length = 100

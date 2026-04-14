@@ -14,7 +14,7 @@ import yaml
 from sentence_transformers import SentenceTransformer
 
 TABLE_NAME = "docs"
-DEFAULT_EXCLUDES = (".wiki-mcp", ".git", "node_modules", ".venv", "__pycache__")
+DEFAULT_EXCLUDES = (".mdrag", ".git", "node_modules", ".venv", "__pycache__")
 
 
 @dataclass

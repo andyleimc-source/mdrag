@@ -11,7 +11,7 @@ from sentence_transformers import SentenceTransformer
 from .config import VaultRegistry, Vault
 from .indexer import TABLE_NAME
 
-mcp = FastMCP("wiki-mcp")
+mcp = FastMCP("mdrag")
 
 _registry: VaultRegistry | None = None
 _models: dict[str, SentenceTransformer] = {}
@@ -36,7 +36,7 @@ def _get_table(vault: Vault):
         db = lancedb.connect(str(vault.vector_dir))
         if TABLE_NAME not in db.table_names():
             raise RuntimeError(
-                f"vault '{vault.name}' has no index. Run: wiki-mcp vault reindex {vault.name}"
+                f"vault '{vault.name}' has no index. Run: mdrag vault reindex {vault.name}"
             )
         _tables[vault.name] = db.open_table(TABLE_NAME)
     return _tables[vault.name]
@@ -47,7 +47,7 @@ def list_vaults() -> str:
     """列出所有已注册的 vault（name / path / 文档数 / 上次索引时间）。"""
     vaults = _get_registry().list()
     if not vaults:
-        return "No vaults registered. Run: wiki-mcp vault add <name> <path>"
+        return "No vaults registered. Run: mdrag vault add <name> <path>"
     lines = []
     for v in vaults:
         lines.append(

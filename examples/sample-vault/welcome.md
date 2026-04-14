@@ -1,10 +1,10 @@
 ---
-title: Welcome to wiki-mcp
+title: Welcome to mdrag
 tags: [intro, getting-started]
 ---
 
-# Welcome to wiki-mcp
+# Welcome to mdrag
 
-This is a sample vault showing how wiki-mcp indexes Markdown files.
+This is a sample vault showing how mdrag indexes Markdown files.
 
 Every `.md` under this folder is indexed. Frontmatter (the YAML block between `---` lines) is parsed — `title` and `tags` are searchable, everything else is metadata.

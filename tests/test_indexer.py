@@ -3,7 +3,7 @@
 from pathlib import Path
 
 
-from wiki_mcp.indexer import iter_markdown_files, parse_frontmatter, DEFAULT_EXCLUDES
+from mdrag.indexer import iter_markdown_files, parse_frontmatter, DEFAULT_EXCLUDES
 
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -42,6 +42,6 @@ def test_parse_frontmatter_without_frontmatter():
 
 
 def test_default_excludes_includes_expected():
-    assert ".wiki-mcp" in DEFAULT_EXCLUDES
+    assert ".mdrag" in DEFAULT_EXCLUDES
     assert ".git" in DEFAULT_EXCLUDES
     assert "node_modules" in DEFAULT_EXCLUDES
