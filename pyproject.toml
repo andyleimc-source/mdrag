@@ -1,0 +1,54 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "wiki-mcp"
+version = "0.1.0"
+description = "Give any local Markdown folder a semantic-search MCP server"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.10"
+authors = [
+    {name = "Andy Lei", email = "leimingcan@icloud.com"}
+]
+keywords = ["mcp", "wiki", "markdown", "semantic-search", "rag", "claude", "lancedb"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Text Processing :: Markup :: Markdown",
+]
+dependencies = [
+    "click>=8.0",
+    "pyyaml>=6.0",
+    "lancedb>=0.14",
+    "sentence-transformers>=3.0",
+    "mcp>=1.0",
+    "pyarrow>=16.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.6",
+    "build",
+    "twine",
+]
+
+[project.scripts]
+wiki-mcp = "wiki_mcp.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/andyleimc-source/wiki-mcp"
+Issues = "https://github.com/andyleimc-source/wiki-mcp/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/wiki_mcp"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
