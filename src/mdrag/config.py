@@ -11,7 +11,7 @@ import yaml
 
 CONFIG_DIR = Path.home() / ".mdrag"
 REGISTRY_FILE = CONFIG_DIR / "vaults.yaml"
-DEFAULT_MODEL = "BAAI/bge-small-zh-v1.5"
+DEFAULT_MODEL = "paraphrase-multilingual-MiniLM-L12-v2"
 VAULT_DATA_DIR = ".mdrag"
 
 

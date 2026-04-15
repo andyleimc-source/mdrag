@@ -7,7 +7,8 @@ Turn `~/Desktop/sales/`, `~/Desktop/notes/`, or any directory full of Markdown f
 - 🗂 **Multi-vault**: one MCP server manages many doc folders, each a separate "vault"
 - 🔒 **Fully local**: no API keys, no cloud — embeddings run on your machine
 - ⚡ **Incremental indexing**: only re-embed files that changed
-- 🧠 **Any embedding model**: default is Chinese-optimized `bge-small-zh-v1.5`; English / multilingual models work too
+- ✂️ **Chunk-level retrieval**: long docs are split by headings so mid-doc content stays findable; each doc also gets an "overview" chunk for broad queries
+- 🧠 **Any embedding model**: default is multilingual `paraphrase-multilingual-MiniLM-L12-v2` (handles Chinese + English out of the box); single-language models work too
 - 📦 **Self-contained**: each vault's vector DB lives inside the folder (`.mdrag/`), move it anywhere
 
 ---
@@ -79,6 +80,7 @@ mdrag vault list                     Show all vaults
 mdrag vault info NAME                Show vault details
 mdrag vault reindex NAME [--full]    Re-index (incremental or full)
 mdrag vault remove NAME [--purge]    Unregister (and optionally delete .mdrag/)
+mdrag eval QUERIES INDEX_SPECS...    Compare retrieval quality across indexes
 ```
 
 Common options:
@@ -95,7 +97,7 @@ When `mdrag serve` is running, these tools are available to the AI client:
 | Tool | Purpose |
 |------|---------|
 | `list_vaults()` | List all registered vaults with their stats |
-| `search(vault, query, top_k=5, tags="")` | Semantic search within a vault, optional tag filter |
+| `search(vault, query, top_k=5, tags="")` | Semantic search within a vault; returns the best-matching chunk per doc with `heading_path` and `chunk_text` |
 | `get_doc(vault, path)` | Read the full content of a document |
 | `list_tags(vault)` | List all frontmatter tags in a vault with counts |
 
@@ -128,9 +130,9 @@ No frontmatter? It still works — mdrag auto-generates a preview from the file 
 
 | Language | Recommended model | Notes |
 |----------|------------------|-------|
-| Chinese | `BAAI/bge-small-zh-v1.5` (default) | ~100MB, CPU-friendly |
-| English | `BAAI/bge-small-en-v1.5` | Same family, English |
-| Multilingual | `paraphrase-multilingual-MiniLM-L12-v2` | For mixed-language vaults |
+| Multilingual (default) | `paraphrase-multilingual-MiniLM-L12-v2` | ~120MB, handles Chinese + English + 50 more |
+| Chinese-only | `BAAI/bge-small-zh-v1.5` | ~100MB, higher recall on pure Chinese |
+| English-only | `BAAI/bge-small-en-v1.5` | ~100MB, higher recall on pure English |
 | Higher accuracy | `BAAI/bge-base-zh-v1.5` or `-en` | ~400MB, noticeably slower |
 
 Change the model when registering a vault:

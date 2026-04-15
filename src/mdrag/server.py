@@ -38,7 +38,13 @@ def _get_table(vault: Vault):
             raise RuntimeError(
                 f"vault '{vault.name}' has no index. Run: mdrag vault reindex {vault.name}"
             )
-        _tables[vault.name] = db.open_table(TABLE_NAME)
+        table = db.open_table(TABLE_NAME)
+        if "chunk_id" not in set(table.schema.names):
+            raise RuntimeError(
+                f"vault '{vault.name}' uses an old index schema. "
+                f"Run: mdrag vault reindex {vault.name} --full"
+            )
+        _tables[vault.name] = table
     return _tables[vault.name]
 
 
@@ -58,12 +64,12 @@ def list_vaults() -> str:
 
 @mcp.tool()
 def search(vault: str, query: str, top_k: int = 5, tags: str = "") -> str:
-    """在指定 vault 中语义搜索 Markdown 文档。
+    """在指定 vault 中语义搜索 Markdown 文档。返回每篇文档最相关的片段。
 
     Args:
         vault: vault 名称（通过 list_vaults 查看）
         query: 搜索关键词或自然语言描述
-        top_k: 返回结果数量，默认 5
+        top_k: 返回文档数量，默认 5
         tags: 可选，按标签过滤，逗号分隔（如 "case-study,product"）
     """
     v = _get_registry().get(vault)
@@ -72,24 +78,37 @@ def search(vault: str, query: str, top_k: int = 5, tags: str = "") -> str:
 
     query_vec = model.encode(query).tolist()
 
-    builder = table.search(query_vec).limit(max(top_k * 3, top_k))
+    fetch_limit = max(top_k * 20, 100)
+    builder = table.search(query_vec).limit(fetch_limit)
     if tags.strip():
         tag_list = [t.strip() for t in tags.split(",") if t.strip()]
         conditions = " OR ".join(f"tags LIKE '%\"{t}\"%'" for t in tag_list)
         builder = builder.where(conditions)
 
-    rows = builder.to_list()[:top_k]
+    rows = builder.to_list()
+
+    best_per_doc: dict[str, dict] = {}
+    for r in rows:
+        doc_path = r.get("doc_path")
+        if doc_path is None:
+            continue
+        if doc_path not in best_per_doc or r["_distance"] < best_per_doc[doc_path]["_distance"]:
+            best_per_doc[doc_path] = r
+
+    ranked = sorted(best_per_doc.values(), key=lambda x: x["_distance"])[:top_k]
 
     results = []
-    for r in rows:
+    for r in ranked:
         try:
             tag_list = json.loads(r.get("tags", "[]"))
         except Exception:
             tag_list = []
         results.append({
             "title": r.get("title"),
-            "path": r.get("path"),
-            "summary": r.get("summary", "")[:200],
+            "path": r.get("doc_path"),
+            "heading_path": r.get("heading_path") or "",
+            "chunk_text": (r.get("chunk_text") or "")[:300],
+            "summary": (r.get("summary") or "")[:200],
             "tags": tag_list,
             "distance": round(r.get("_distance", 0), 4),
         })
@@ -120,14 +139,25 @@ def list_tags(vault: str) -> str:
     """列出 vault 中所有 frontmatter 标签及其文档数量。"""
     v = _get_registry().get(vault)
     table = _get_table(v)
-    counts: dict[str, int] = {}
-    for tags_json in table.to_arrow().column("tags").to_pylist():
+    arrow = table.to_arrow()
+    seen_per_doc: dict[str, set[str]] = {}
+    for doc_path, tags_json in zip(
+        arrow.column("doc_path").to_pylist(),
+        arrow.column("tags").to_pylist(),
+    ):
+        if doc_path in seen_per_doc:
+            continue
         try:
             tags = json.loads(tags_json or "[]")
         except Exception:
             tags = []
+        seen_per_doc[doc_path] = set(tags)
+
+    counts: dict[str, int] = {}
+    for tags in seen_per_doc.values():
         for t in tags:
             counts[t] = counts.get(t, 0) + 1
+
     if not counts:
         return "No tags found (tags come from MD frontmatter)."
     return "\n".join(f"- {t}: {n}" for t, n in sorted(counts.items(), key=lambda x: -x[1]))

@@ -1,0 +1,83 @@
+# Evaluation queries for mdrag chunking vs. baseline (first-500-chars) comparison.
+# kind: general = realistic broad queries (both should find; tests for regression)
+# kind: needle  = target content past char 500 (baseline expected to miss by design)
+
+- q: "明道云核心功能介绍"
+  expect:
+    - "mingdao/intro/明道云伙伴introbook.md"
+    - "mingdao/intro/明道云特性清单.md"
+  kind: general
+
+- q: "nocoly 合作伙伴计划"
+  expect:
+    - "nocoly/intro/02_partner-program/Nocoly Partnership Essentials.md"
+  kind: general
+
+- q: "HAP 产品与低代码平台的区别"
+  expect:
+    - "nocoly/intro/03_product-sales-enablement/Nocoly HAP Comparison.md"
+    - "mingdao/intro/主流零代码平台分析报告.md"
+  kind: general
+
+- q: "华夏银行 项目案例"
+  expect:
+    - "mingdao/intro/明道云在APaaS细分市场中的领先性详解和实证.md"
+  kind: general
+
+- q: "数字化转型制造业案例"
+  expect:
+    - "mingdao/cases/all-hands-on/深圳明道智远信息技术有限-从代码围城到零代码突围制造业数字化改造的转型实践.md"
+    - "mingdao/cases/all-hands-on/广州红菱电热设备有限公司-从破釜沉舟到破茧重生-一号位的数字化自我救赎.md"
+  kind: general
+
+# Needle queries — target content beyond char 500 of the source
+
+- q: "郑州日产项目协作效率提升多少百分比"
+  expect:
+    - "mingdao/cases/mpc2025/郑州日产汽车有限公司-低代码平台助力汽车企业数字化转型.md"
+  kind: needle
+
+- q: "HAP 如何解决加盟商全生命周期管理的痛点"
+  expect:
+    - "mingdao/cases/mpc2025/谷连天餐饮管理有限公司-为什么选择HAP连锁餐饮企业的数字化实践.md"
+  kind: needle
+
+- q: "南京青扬 RFID 标签在仓储中的具体应用"
+  expect:
+    - "mingdao/cases/mpc2025/南京青扬智能科技有限公司-重塑制造业服务模式HAP-集成与扩展的价值探索.md"
+  kind: needle
+
+- q: "郑州日产零代码文化推广的三个阶段"
+  expect:
+    - "mingdao/cases/mpc2025/郑州日产汽车有限公司-低代码平台助力汽车企业数字化转型.md"
+  kind: needle
+
+- q: "医药行业 AI 成熟度分级的第五阶段定义"
+  expect:
+    - "mingdao/cases/all-hands-on/连云港木杉医药科技有限公-AI驱动医药变革成熟度分级与创新应用.md"
+  kind: needle
+
+- q: "红菱混合系统核心功能模块 OA ERP RPA 集成"
+  expect:
+    - "mingdao/cases/all-hands-on/广州红菱电热设备有限公司-从破釜沉舟到破茧重生-一号位的数字化自我救赎.md"
+  kind: needle
+
+- q: "明道云 38 种字段控件类型易用性设计"
+  expect:
+    - "mingdao/intro/主流零代码平台分析报告.md"
+  kind: needle
+
+- q: "华夏银行 i 助手平台部署了多少个应用"
+  expect:
+    - "mingdao/intro/明道云在APaaS细分市场中的领先性详解和实证.md"
+  kind: needle
+
+- q: "MPC2025 武测空间无人机日均飞行架次数量"
+  expect:
+    - "mingdao/cases/mpc2025/_蒸馏洞察.md"
+  kind: needle
+
+- q: "Nocoly HAP vs Outsystems builder accessibility differences"
+  expect:
+    - "nocoly/intro/03_product-sales-enablement/Nocoly HAP Comparison.md"
+  kind: needle

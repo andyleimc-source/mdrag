@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 
 import click
 
@@ -30,7 +31,18 @@ def vault() -> None:
 @vault.command("add")
 @click.argument("name")
 @click.argument("path", type=click.Path(exists=True, file_okay=False, dir_okay=True))
-@click.option("--model", default=DEFAULT_MODEL, show_default=True, help="Embedding model.")
+@click.option(
+    "--model",
+    default=DEFAULT_MODEL,
+    show_default=True,
+    help=(
+        "Embedding model. Recommended: "
+        "'paraphrase-multilingual-MiniLM-L12-v2' (multilingual, default), "
+        "'BAAI/bge-small-zh-v1.5' (Chinese), "
+        "'BAAI/bge-small-en-v1.5' (English). "
+        "Any sentence-transformers model on HuggingFace works."
+    ),
+)
 @click.option("--no-index", is_flag=True, help="Skip initial indexing.")
 def vault_add(name: str, path: str, model: str, no_index: bool) -> None:
     """Register a Markdown directory as a vault and index it."""
@@ -112,6 +124,63 @@ def vault_info(name: str) -> None:
     click.echo(f"Data dir:   {v.vector_dir}")
 
 
+@main.command("eval")
+@click.argument("queries_yaml", type=click.Path(exists=True, dir_okay=False))
+@click.argument("index_specs", nargs=-1, required=True)
+@click.option("--top-k", default=5, show_default=True, type=int)
+@click.option(
+    "--model",
+    default=DEFAULT_MODEL,
+    show_default=True,
+    help="Embedding model (must match the one used to build each index).",
+)
+@click.option(
+    "--output",
+    type=click.Path(dir_okay=False),
+    default="EVAL_REPORT.md",
+    show_default=True,
+    help="Where to write the markdown report.",
+)
+def eval_cmd(
+    queries_yaml: str,
+    index_specs: tuple[str, ...],
+    top_k: int,
+    model: str,
+    output: str,
+) -> None:
+    """Compare search quality across multiple LanceDB indexes.
+
+    INDEX_SPECS are "label=/path/to/.mdrag" pairs. The first is treated as baseline.
+
+    \b
+    Example:
+      mdrag eval queries.yaml \\
+        baseline=/tmp/mdrag-baseline \\
+        chunked=/Users/me/docs/.mdrag \\
+        --output report.md
+    """
+    from .evaluator import run_eval
+
+    indexes = []
+    for spec in index_specs:
+        if "=" not in spec:
+            raise click.ClickException(f"expected 'label=path', got: {spec}")
+        label, path = spec.split("=", 1)
+        p = Path(path).expanduser().resolve()
+        if not p.is_dir():
+            raise click.ClickException(f"index dir not found: {p}")
+        indexes.append((label.strip(), p))
+
+    run_eval(
+        queries_path=Path(queries_yaml),
+        indexes=indexes,
+        top_k=top_k,
+        model_name=model,
+        output_path=Path(output),
+    )
+    click.echo(f"✅ Report written to {output}")
+
+
 def _run_index(reg: VaultRegistry, name: str, full: bool) -> None:
     from .indexer import build_index
 
@@ -131,10 +200,16 @@ def _run_index(reg: VaultRegistry, name: str, full: bool) -> None:
     except Exception as e:
         raise click.ClickException(f"indexing failed: {e}")
 
-    reg.update_stats(name, stats.total)
+    reg.update_stats(name, stats.total_docs)
     click.echo(
-        f"✅ Indexed {stats.total} docs ({stats.updated} updated) in {stats.elapsed_seconds:.1f}s"
+        f"✅ Indexed {stats.total_docs} docs → {stats.total_chunks} chunks "
+        f"({stats.updated_docs} docs updated) in {stats.elapsed_seconds:.1f}s"
     )
+    if stats.skipped_oversize:
+        click.echo(
+            f"⚠️  Skipped {stats.skipped_oversize} file(s) exceeding the size limit "
+            f"(edit MAX_FILE_SIZE in indexer.py to change)."
+        )
 
 
 if __name__ == "__main__":
