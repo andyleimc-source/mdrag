@@ -9,6 +9,8 @@ Turn `~/Desktop/sales/`, `~/Desktop/notes/`, or any directory full of Markdown f
 - ⚡ **Incremental indexing**: only re-embed files that changed
 - ✂️ **Chunk-level retrieval**: long docs are split by headings so mid-doc content stays findable; each doc also gets an "overview" chunk for broad queries
 - 🔀 **Hybrid search**: combines dense vector retrieval with BM25 keyword matching (best-rank fusion), so specific terms and semantic intent both get through
+- 👀 **Auto-reindex on save**: `mdrag serve` watches your vault folders and updates the index as you edit files — no cron, no manual reindex
+- 🙈 **`.mdragignore`**: drop a gitignore-style file in any vault root to exclude drafts, archives, or whole directories from the index
 - 🧠 **Any embedding model**: default is multilingual `paraphrase-multilingual-MiniLM-L12-v2` (handles Chinese + English out of the box); single-language models work too
 - 📦 **Self-contained**: each vault's vector DB lives inside the folder (`.mdrag/`), move it anywhere
 
@@ -183,17 +185,23 @@ mdrag vault reindex notes --full
 ## FAQ
 
 ### How do I update the index after editing files?
+You don't have to. When `mdrag serve` is running (i.e. Claude Code / Cursor are connected), it watches every registered vault and auto-reindexes on save. A short debounce batches rapid edits.
+
+If `serve` isn't running, run manual incremental:
 ```bash
 mdrag vault reindex sales
 ```
-It's incremental — only files with changed `mtime` are re-embedded.
+Only files with changed `mtime` are re-embedded.
 
-### Can I automate re-indexing?
-Yes. Add to cron (Linux/macOS):
+### How do I exclude files from the index?
+Put a `.mdragignore` file at the root of your vault, using gitignore syntax:
 ```
-0 * * * * /path/to/mdrag vault reindex sales
+# Example: drafts, archives, big log exports
+drafts/
+archive/**
+**/sales-log-*.md
 ```
-Or use `launchd` on macOS / Task Scheduler on Windows.
+Takes effect on the next index run (auto-watch picks up the change too).
 
 ### Does it support PDF, DOCX, etc.?
 Not yet. Convert to Markdown first (e.g. with [pandoc](https://pandoc.org/)) and point mdrag at the result.

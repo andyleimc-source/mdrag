@@ -173,6 +173,17 @@ def list_tags(vault: str) -> str:
     return "\n".join(f"- {t}: {n}" for t, n in sorted(counts.items(), key=lambda x: -x[1]))
 
 
+def _invalidate_cache(vault_name: str) -> None:
+    _tables.pop(vault_name, None)
+    _bm25_stores.pop(vault_name, None)
+
+
 def run() -> None:
     """Entry point used by CLI."""
-    mcp.run()
+    from .watcher import start_watchers, stop_watchers
+
+    observers = start_watchers(_get_registry(), on_reindex=_invalidate_cache)
+    try:
+        mcp.run()
+    finally:
+        stop_watchers(observers)

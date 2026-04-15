@@ -129,7 +129,7 @@ Rank shown is the position of the first expected document (— = not in top-K).
   2.    `mingdao/cases/mpc2025/深圳市深汕特别合作区智慧-从自我提升到城市进阶低代码与大模型的融合实践.md`
   3.    `mingdao/cases/all-hands-on/福州汉思信息技术有限公司-以卫浴行业为例介绍HAP平台在制造业MOM的应用.md`
   4.    `mingdao/cases/mpc2025/上海安丽锘云计算技术有限-从SAP、Salesforce走向HAP.md`
-  5.    `mingdao/cases/mpc2025/深圳市武测空间信息有限公-零代码赋能低空经济“圳飞”无人机机场的智能管理平台.md`
+  5.    `mingdao/cases/mpc2025/郑州日产汽车有限公司-低代码平台助力汽车企业数字化转型.md`
 - **hybrid** (rank: —):
   1.    `mingdao/live-series/2025/hap-0239-HAP实战直播第239期小应用大作用基于HAP打造企业级数字化名片小程.md`
   2.    `mingdao/live-series/2024/hap-0178-HAP实战直播第178期明道云在医疗卫生行业的展业实践分享.md`
@@ -267,20 +267,20 @@ Rank shown is the position of the first expected document (— = not in top-K).
   1. 👉 `mingdao/cases/mpc2025/南京青扬智能科技有限公司-重塑制造业服务模式HAP-集成与扩展的价值探索.md`
   2.    `mingdao/线索表单/联系明道云销售-线索.md`
   3.    `mingdao/cases/all-hands-on/_蒸馏洞察.md`
-  4.    `mingdao/线索表单/明道云私有部署咨询-线索.md`
-  5.    `mingdao/cases/mpc2025/深圳市武测空间信息有限公-零代码赋能低空经济“圳飞”无人机机场的智能管理平台.md`
+  4.    `mingdao/销售跟进日志/日志_20260414101136.md`
+  5.    `mingdao/线索表单/明道云私有部署咨询-线索.md`
 - **bm25** (rank: 1):
   1. 👉 `mingdao/cases/mpc2025/南京青扬智能科技有限公司-重塑制造业服务模式HAP-集成与扩展的价值探索.md`
   2.    `mingdao/live-series/2025/hap-0224-HAP实战直播第224期明道云在制造业MES场景的优势.md`
   3.    `mingdao/cases/mpc2025/_蒸馏洞察.md`
-  4.    `mingdao/live-series/2025/hap-0258-HAP实战直播第258期光伏行业数字化管理方案流程、仓储与结算的全链路.md`
-  5.    `mingdao/live-series/2022/zls-0103-零代码实践第103期贸易行业的数字化管理.md`
+  4.    `mingdao/伙伴企微群/20250527-20251201.md`
+  5.    `mingdao/live-series/2025/hap-0258-HAP实战直播第258期光伏行业数字化管理方案流程、仓储与结算的全链路.md`
 - **hybrid** (rank: 1):
   1. 👉 `mingdao/cases/mpc2025/南京青扬智能科技有限公司-重塑制造业服务模式HAP-集成与扩展的价值探索.md`
   2.    `mingdao/线索表单/联系明道云销售-线索.md`
   3.    `mingdao/live-series/2025/hap-0224-HAP实战直播第224期明道云在制造业MES场景的优势.md`
   4.    `mingdao/cases/all-hands-on/_蒸馏洞察.md`
-  5.    `mingdao/cases/mpc2025/_蒸馏洞察.md`
+  5.    `mingdao/伙伴企微群/20250527-20251201.md`
 
 ### Q9. 郑州日产零代码文化推广的三个阶段
 
@@ -301,15 +301,15 @@ Rank shown is the position of the first expected document (— = not in top-K).
 - **bm25** (rank: 1):
   1. 👉 `mingdao/cases/mpc2025/郑州日产汽车有限公司-低代码平台助力汽车企业数字化转型.md`
   2.    `mingdao/live-series/2022/zls-0109-零代码实践第109期All-In-One的生产管理系统.md`
-  3.    `mingdao/cases/mpc2025/_蒸馏洞察.md`
+  3.    `mingdao/cases/open-day/华夏银行股份有限公司-华夏银行实现全员业技融合的低代码推广经验.md`
   4.    `mingdao/cases/all-hands-on/广州昱丰信息科技有限公司-打造分布式架构全球化ERPAI+零代码重构业务创新范式.md`
-  5.    `mingdao/cases/open-day/华夏银行股份有限公司-华夏银行实现全员业技融合的低代码推广经验.md`
+  5.    `mingdao/cases/mpc2025/_蒸馏洞察.md`
 - **hybrid** (rank: 1):
   1. 👉 `mingdao/cases/mpc2025/郑州日产汽车有限公司-低代码平台助力汽车企业数字化转型.md`
   2.    `mingdao/live-series/2022/zls-0085-零代码实践第85期天津商业大学低代码平台建设实践.md`
   3.    `mingdao/live-series/2022/zls-0109-零代码实践第109期All-In-One的生产管理系统.md`
   4.    `mingdao/live-series/2022/zls-0122-零代码实践第122期天津钢管用零代码突破传统思路重塑企业IT价值.md`
-  5.    `mingdao/cases/mpc2025/_蒸馏洞察.md`
+  5.    `mingdao/cases/open-day/华夏银行股份有限公司-华夏银行实现全员业技融合的低代码推广经验.md`
 
 ### Q10. 医药行业 AI 成熟度分级的第五阶段定义
 

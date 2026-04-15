@@ -213,11 +213,8 @@ def _run_index(reg: VaultRegistry, name: str, full: bool) -> None:
         f"✅ Indexed {stats.total_docs} docs → {stats.total_chunks} chunks "
         f"({stats.updated_docs} docs updated) in {stats.elapsed_seconds:.1f}s"
     )
-    if stats.skipped_oversize:
-        click.echo(
-            f"⚠️  Skipped {stats.skipped_oversize} file(s) exceeding the size limit "
-            f"(edit MAX_FILE_SIZE in indexer.py to change)."
-        )
+    if stats.ignored_docs:
+        click.echo(f"ℹ️  Ignored {stats.ignored_docs} file(s) per .mdragignore")
 
 
 if __name__ == "__main__":

@@ -11,6 +11,7 @@ from typing import Iterable
 
 import lancedb
 import yaml
+from pathspec import PathSpec
 from sentence_transformers import SentenceTransformer
 
 from .chunking import split_markdown
@@ -18,7 +19,7 @@ from .retrieval import BM25_FILENAME, BM25Store
 
 TABLE_NAME = "docs"
 DEFAULT_EXCLUDES = (".mdrag", ".git", "node_modules", ".venv", "__pycache__")
-MAX_FILE_SIZE = 200_000
+IGNORE_FILENAME = ".mdragignore"
 
 
 @dataclass
@@ -26,8 +27,16 @@ class IndexStats:
     total_docs: int
     total_chunks: int
     updated_docs: int
-    skipped_oversize: int
+    ignored_docs: int
     elapsed_seconds: float
+
+
+def load_ignore_spec(root: Path) -> PathSpec | None:
+    ignore_file = root / IGNORE_FILENAME
+    if not ignore_file.is_file():
+        return None
+    lines = ignore_file.read_text(encoding="utf-8").splitlines()
+    return PathSpec.from_lines("gitignore", lines)
 
 
 def parse_frontmatter(text: str) -> tuple[dict, str]:
@@ -55,27 +64,29 @@ def _walk_markdown(
 def iter_markdown_files(
     root: Path,
     excludes: Iterable[str] = DEFAULT_EXCLUDES,
-    max_file_size: int = MAX_FILE_SIZE,
 ) -> Iterable[Path]:
+    spec = load_ignore_spec(root)
     for path in _walk_markdown(root, excludes):
-        if max_file_size and path.stat().st_size > max_file_size:
+        rel = path.relative_to(root)
+        if spec and spec.match_file(str(rel)):
             continue
         yield path
 
 
-def partition_by_size(
+def partition_by_ignore(
     root: Path,
     excludes: Iterable[str] = DEFAULT_EXCLUDES,
-    max_file_size: int = MAX_FILE_SIZE,
 ) -> tuple[list[Path], list[Path]]:
+    spec = load_ignore_spec(root)
     kept: list[Path] = []
-    oversized: list[Path] = []
+    ignored: list[Path] = []
     for path in _walk_markdown(root, excludes):
-        if max_file_size and path.stat().st_size > max_file_size:
-            oversized.append(path)
+        rel = path.relative_to(root)
+        if spec and spec.match_file(str(rel)):
+            ignored.append(path)
         else:
             kept.append(path)
-    return kept, oversized
+    return kept, ignored
 
 
 def _doc_chunks(md_path: Path, vault_root: Path) -> list[dict]:
@@ -156,7 +167,7 @@ def build_index(
     vault_path = vault_path.expanduser().resolve()
     vector_dir.mkdir(parents=True, exist_ok=True)
 
-    md_files, oversized = partition_by_size(vault_path)
+    md_files, ignored = partition_by_ignore(vault_path)
     db = lancedb.connect(str(vector_dir))
 
     existing_table = TABLE_NAME in db.table_names()
@@ -176,7 +187,7 @@ def build_index(
         if not all_rows:
             if existing_table:
                 db.drop_table(TABLE_NAME)
-            return IndexStats(0, 0, 0, len(oversized), time.time() - t0)
+            return IndexStats(0, 0, 0, len(ignored), time.time() - t0)
 
         rows = _embed_rows(all_rows, model)
         if existing_table:
@@ -187,7 +198,7 @@ def build_index(
             total_docs=len(md_files),
             total_chunks=len(rows),
             updated_docs=len(md_files),
-            skipped_oversize=len(oversized),
+            ignored_docs=len(ignored),
             elapsed_seconds=time.time() - t0,
         )
 
@@ -218,7 +229,7 @@ def build_index(
             total_docs=len(md_files),
             total_chunks=total_chunks,
             updated_docs=0,
-            skipped_oversize=len(oversized),
+            ignored_docs=len(ignored),
             elapsed_seconds=time.time() - t0,
         )
 
@@ -239,6 +250,6 @@ def build_index(
         total_docs=len(md_files),
         total_chunks=table.count_rows(),
         updated_docs=len(changed_docs),
-        skipped_oversize=len(oversized),
+        ignored_docs=len(ignored),
         elapsed_seconds=time.time() - t0,
     )
