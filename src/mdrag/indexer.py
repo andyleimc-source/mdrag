@@ -14,6 +14,7 @@ import yaml
 from sentence_transformers import SentenceTransformer
 
 from .chunking import split_markdown
+from .retrieval import BM25_FILENAME, BM25Store
 
 TABLE_NAME = "docs"
 DEFAULT_EXCLUDES = (".mdrag", ".git", "node_modules", ".venv", "__pycache__")
@@ -131,6 +132,19 @@ def _embed_rows(rows: list[dict], model: SentenceTransformer) -> list[dict]:
     return out
 
 
+def _rebuild_bm25_from_table(table, vector_dir: Path) -> None:
+    arrow = table.to_arrow()
+    cols = arrow.column_names
+    needed = ("doc_path", "chunk_id", "title", "heading_path", "chunk_text")
+    if not all(c in cols for c in needed):
+        return
+    chunks = [
+        {k: row[k] for k in needed}
+        for row in arrow.select(list(needed)).to_pylist()
+    ]
+    BM25Store.build(chunks).save(vector_dir / BM25_FILENAME)
+
+
 def build_index(
     vault_path: Path,
     vector_dir: Path,
@@ -167,7 +181,8 @@ def build_index(
         rows = _embed_rows(all_rows, model)
         if existing_table:
             db.drop_table(TABLE_NAME)
-        db.create_table(TABLE_NAME, rows)
+        table = db.create_table(TABLE_NAME, rows)
+        _rebuild_bm25_from_table(table, vector_dir)
         return IndexStats(
             total_docs=len(md_files),
             total_chunks=len(rows),
@@ -217,6 +232,8 @@ def build_index(
 
     if new_rows:
         table.add(_embed_rows(new_rows, model))
+
+    _rebuild_bm25_from_table(table, vector_dir)
 
     return IndexStats(
         total_docs=len(md_files),

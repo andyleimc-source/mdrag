@@ -10,12 +10,18 @@ from sentence_transformers import SentenceTransformer
 
 from .config import VaultRegistry, Vault
 from .indexer import TABLE_NAME
+from .retrieval import (
+    BM25_FILENAME,
+    BM25Store,
+    hybrid_search_docs,
+)
 
 mcp = FastMCP("mdrag")
 
 _registry: VaultRegistry | None = None
 _models: dict[str, SentenceTransformer] = {}
 _tables: dict[str, "lancedb.table.Table"] = {}
+_bm25_stores: dict[str, BM25Store | None] = {}
 
 
 def _get_registry() -> VaultRegistry:
@@ -48,6 +54,13 @@ def _get_table(vault: Vault):
     return _tables[vault.name]
 
 
+def _get_bm25(vault: Vault) -> BM25Store | None:
+    if vault.name not in _bm25_stores:
+        path = vault.vector_dir / BM25_FILENAME
+        _bm25_stores[vault.name] = BM25Store.load(path) if path.is_file() else None
+    return _bm25_stores[vault.name]
+
+
 @mcp.tool()
 def list_vaults() -> str:
     """列出所有已注册的 vault（name / path / 文档数 / 上次索引时间）。"""
@@ -75,42 +88,39 @@ def search(vault: str, query: str, top_k: int = 5, tags: str = "") -> str:
     v = _get_registry().get(vault)
     model = _get_model(v.model)
     table = _get_table(v)
-
-    query_vec = model.encode(query).tolist()
+    bm25 = _get_bm25(v)
 
     fetch_limit = max(top_k * 20, 100)
-    builder = table.search(query_vec).limit(fetch_limit)
+    docs = hybrid_search_docs(table, bm25, model, query, fetch_limit)
+
     if tags.strip():
-        tag_list = [t.strip() for t in tags.split(",") if t.strip()]
-        conditions = " OR ".join(f"tags LIKE '%\"{t}\"%'" for t in tag_list)
-        builder = builder.where(conditions)
+        tag_filters = [t.strip().strip('"') for t in tags.split(",") if t.strip()]
+        def _has_tag(row):
+            try:
+                raw = row.get("tags") or "[]"
+                parsed = json.loads(raw) if isinstance(raw, str) else raw
+            except Exception:
+                return False
+            return any(t in parsed for t in tag_filters)
+        docs = [r for r in docs if _has_tag(r)]
 
-    rows = builder.to_list()
-
-    best_per_doc: dict[str, dict] = {}
-    for r in rows:
-        doc_path = r.get("doc_path")
-        if doc_path is None:
-            continue
-        if doc_path not in best_per_doc or r["_distance"] < best_per_doc[doc_path]["_distance"]:
-            best_per_doc[doc_path] = r
-
-    ranked = sorted(best_per_doc.values(), key=lambda x: x["_distance"])[:top_k]
+    score_key = "_rrf" if (docs and "_rrf" in docs[0]) else "_distance"
+    ranked = docs[:top_k]
 
     results = []
     for r in ranked:
         try:
-            tag_list = json.loads(r.get("tags", "[]"))
+            parsed_tags = json.loads(r.get("tags", "[]"))
         except Exception:
-            tag_list = []
+            parsed_tags = []
         results.append({
             "title": r.get("title"),
             "path": r.get("doc_path"),
             "heading_path": r.get("heading_path") or "",
             "chunk_text": (r.get("chunk_text") or "")[:300],
             "summary": (r.get("summary") or "")[:200],
-            "tags": tag_list,
-            "distance": round(r.get("_distance", 0), 4),
+            "tags": parsed_tags,
+            "score": round(r.get("_rrf", 0), 4) if score_key == "_rrf" else round(r.get("_distance", 0), 4),
         })
     return json.dumps(results, ensure_ascii=False, indent=2)
 

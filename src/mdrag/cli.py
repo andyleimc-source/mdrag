@@ -150,13 +150,15 @@ def eval_cmd(
 ) -> None:
     """Compare search quality across multiple LanceDB indexes.
 
-    INDEX_SPECS are "label=/path/to/.mdrag" pairs. The first is treated as baseline.
+    INDEX_SPECS are "label=/path[:mode]" tuples. `mode` is one of
+    `hybrid` (default for chunked indexes), `vector`, or `bm25`.
 
     \b
     Example:
       mdrag eval queries.yaml \\
         baseline=/tmp/mdrag-baseline \\
-        chunked=/Users/me/docs/.mdrag \\
+        vector=/Users/me/docs/.mdrag:vector \\
+        hybrid=/Users/me/docs/.mdrag:hybrid \\
         --output report.md
     """
     from .evaluator import run_eval
@@ -164,12 +166,18 @@ def eval_cmd(
     indexes = []
     for spec in index_specs:
         if "=" not in spec:
-            raise click.ClickException(f"expected 'label=path', got: {spec}")
-        label, path = spec.split("=", 1)
+            raise click.ClickException(f"expected 'label=path[:mode]', got: {spec}")
+        label, rest = spec.split("=", 1)
+        if ":" in rest:
+            path, mode = rest.rsplit(":", 1)
+        else:
+            path, mode = rest, "hybrid"
+        if mode not in ("hybrid", "vector", "bm25"):
+            raise click.ClickException(f"invalid mode '{mode}' (use hybrid/vector/bm25)")
         p = Path(path).expanduser().resolve()
         if not p.is_dir():
             raise click.ClickException(f"index dir not found: {p}")
-        indexes.append((label.strip(), p))
+        indexes.append((label.strip(), p, mode))
 
     run_eval(
         queries_path=Path(queries_yaml),

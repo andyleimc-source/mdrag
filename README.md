@@ -8,6 +8,7 @@ Turn `~/Desktop/sales/`, `~/Desktop/notes/`, or any directory full of Markdown f
 - 🔒 **Fully local**: no API keys, no cloud — embeddings run on your machine
 - ⚡ **Incremental indexing**: only re-embed files that changed
 - ✂️ **Chunk-level retrieval**: long docs are split by headings so mid-doc content stays findable; each doc also gets an "overview" chunk for broad queries
+- 🔀 **Hybrid search**: combines dense vector retrieval with BM25 keyword matching (best-rank fusion), so specific terms and semantic intent both get through
 - 🧠 **Any embedding model**: default is multilingual `paraphrase-multilingual-MiniLM-L12-v2` (handles Chinese + English out of the box); single-language models work too
 - 📦 **Self-contained**: each vault's vector DB lives inside the folder (`.mdrag/`), move it anywhere
 

@@ -11,6 +11,13 @@ import yaml
 from sentence_transformers import SentenceTransformer
 
 from .indexer import TABLE_NAME
+from .retrieval import (
+    BM25_FILENAME,
+    BM25Store,
+    bm25_search_docs,
+    hybrid_search_docs,
+    vector_search_docs,
+)
 
 
 @dataclass
@@ -49,8 +56,21 @@ def load_queries(path: Path) -> list[Query]:
     return out
 
 
+_bm25_cache: dict[Path, BM25Store | None] = {}
+
+
+def _load_bm25(db_path: Path) -> BM25Store | None:
+    if db_path in _bm25_cache:
+        return _bm25_cache[db_path]
+    p = db_path / BM25_FILENAME
+    store = BM25Store.load(p) if p.is_file() else None
+    _bm25_cache[db_path] = store
+    return store
+
+
 def _search_index(
     db_path: Path,
+    mode: str,
     model: SentenceTransformer,
     query: str,
     top_k: int,
@@ -59,25 +79,38 @@ def _search_index(
     table = db.open_table(TABLE_NAME)
     cols = set(table.schema.names)
     fetch_limit = max(top_k * 20, 100)
-    q_vec = model.encode(query).tolist()
-    rows = table.search(q_vec).limit(fetch_limit).to_list()
 
-    path_field = "doc_path" if "doc_path" in cols else "path"
-    seen: dict[str, float] = {}
-    for r in rows:
-        p = r.get(path_field)
-        if p is None:
-            continue
-        d = r.get("_distance", 0.0)
-        if p not in seen or d < seen[p]:
-            seen[p] = d
-    ranked = sorted(seen.items(), key=lambda kv: kv[1])[:top_k]
-    return [p for p, _ in ranked]
+    if "chunk_id" not in cols:
+        q_vec = model.encode(query).tolist()
+        rows = table.search(q_vec).limit(fetch_limit).to_list()
+        seen: dict[str, float] = {}
+        for r in rows:
+            p = r.get("path") or r.get("doc_path")
+            if p is None:
+                continue
+            d = r.get("_distance", 0.0)
+            if p not in seen or d < seen[p]:
+                seen[p] = d
+        return [p for p, _ in sorted(seen.items(), key=lambda kv: kv[1])[:top_k]]
+
+    if mode == "hybrid":
+        bm25 = _load_bm25(db_path)
+        docs = hybrid_search_docs(table, bm25, model, query, fetch_limit)
+    elif mode == "bm25":
+        bm25 = _load_bm25(db_path)
+        if bm25 is None:
+            raise RuntimeError(f"no BM25 store at {db_path}; reindex required")
+        docs = bm25_search_docs(bm25, query, fetch_limit)
+    else:
+        q_vec = model.encode(query).tolist()
+        docs = vector_search_docs(table, q_vec, fetch_limit)
+
+    return [r["doc_path"] for r in docs[:top_k]]
 
 
 def run_eval(
     queries_path: Path,
-    indexes: list[tuple[str, Path]],
+    indexes: list[tuple[str, Path, str]],
     top_k: int,
     model_name: str,
     output_path: Path,
@@ -89,10 +122,10 @@ def run_eval(
     model = SentenceTransformer(model_name)
 
     results: dict[str, list[QueryResult]] = {}
-    for label, db_path in indexes:
+    for label, db_path, mode in indexes:
         runs = []
         for q in queries:
-            ranked = _search_index(db_path, model, q.q, top_k)
+            ranked = _search_index(db_path, mode, model, q.q, top_k)
             runs.append(QueryResult(query=q, ranked_paths=ranked))
         results[label] = runs
 
@@ -120,17 +153,17 @@ def _metrics(runs: Iterable[QueryResult], top_k: int) -> dict[str, float]:
 
 def _format_report(
     queries: list[Query],
-    indexes: list[tuple[str, Path]],
+    indexes: list[tuple[str, Path, str]],
     results: dict[str, list[QueryResult]],
     top_k: int,
 ) -> str:
-    labels = [lbl for lbl, _ in indexes]
+    labels = [lbl for lbl, _, _ in indexes]
 
     lines: list[str] = []
     lines.append(f"# mdrag Evaluation Report\n")
     lines.append(f"- Top-K: **{top_k}**")
     lines.append(f"- Queries: **{len(queries)}**")
-    lines.append(f"- Indexes compared: {', '.join(f'`{l}`' for l in labels)}\n")
+    lines.append(f"- Indexes compared: {', '.join(f'`{l}` ({m})' for l, _, m in indexes)}\n")
 
     if len(labels) == 2:
         base_label, new_label = labels
