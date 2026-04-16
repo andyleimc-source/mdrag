@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "mdrag"
-version = "0.3.0"
+version = "0.3.1"
 description = "Give any local Markdown folder a semantic-search MCP server"
 readme = "README.md"
 license = {text = "MIT"}

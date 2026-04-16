@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.3.1 (2026-04-16)
+
+### Docs
+
+- **README FAQ** — replaced the manual pandoc/Docling conversion recipe with a pointer to
+  [mdpack](https://github.com/andyleimc-source/mdpack), a companion tool that converts a
+  directory of mixed-format docs (DOCX, XLSX, CSV, more coming) to Markdown with proper
+  frontmatter and base64-image stripping. Typical workflow is now: `mdpack convert <dir>`
+  → `mdrag vault add <name> <dir>/converted`.
+
+### Lint
+
+- Fixed 9 ruff errors in `evaluator.py` (4× F541 empty f-strings, 5× E741 ambiguous `l` →
+  `lbl`) so CI passes cleanly again.
+
 ## 0.3.0 (2026-04-16)
 
 ### Stability

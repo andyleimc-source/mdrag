@@ -224,25 +224,28 @@ Takes effect on the next index run (auto-watch picks up the change too).
 
 ### Does it support PDF, DOCX, PPTX, XLSX, etc.?
 Not directly — mdrag only indexes `.md`. This is by design: conversion is a messy, format-specific
-problem, and keeping the core focused on Markdown keeps the index predictable. The recommended
-workflow is to convert once, commit the `.md` output, and let mdrag watch it:
+problem, and keeping the core focused on Markdown keeps the index predictable.
+
+Use the companion tool **[mdpack](https://github.com/andyleimc-source/mdpack)** to convert a
+directory of mixed-format docs to clean Markdown, then point mdrag at the output:
 
 ```bash
-# One-off
-pandoc meeting.docx -o docs/meeting.md
-pandoc slides.pptx  -o docs/slides.md --extract-media=docs/_media
+pip install mdpack
+brew install pandoc            # needed for DOCX
 
-# Bulk conversion with Docling (best quality for PDF/PPTX)
-pip install docling
-docling raw/*.pdf --to markdown --output docs/
-
-# CSV → MD table
-python -c "import csv,sys; [print('|'+'|'.join(r)+'|') for r in csv.reader(open(sys.argv[1]))]" data.csv > docs/data.md
+mdpack convert ~/Desktop/reports                   # writes ~/Desktop/reports/converted/
+mdrag vault add reports ~/Desktop/reports/converted
 ```
 
-**Important**: strip inline base64 images before indexing. A `data:image/...;base64,...` payload
-can inflate a `.md` file to multi-MB and break chunking. With pandoc use `--extract-media=<dir>` or
-post-process with `sed -E 's/!\[[^]]*\]\(data:image[^)]*\)/<!-- image -->/g'`.
+`mdpack` mirrors the source directory, injects `source`/`converter`/`converted_at` frontmatter so
+mdrag can trace results back to the original file, and strips inline base64 images (which would
+otherwise inflate `.md` files to multi-MB and break chunking). Supports `.docx`, `.xlsx`, `.csv`
+today; PDF / PPTX / HTML in the 0.2 roadmap.
+
+For one-off conversions without installing `mdpack`, `pandoc` still works:
+```bash
+pandoc meeting.docx -o docs/meeting.md --wrap=none
+```
 
 ### Model download is slow / fails
 If you're in China, set a HuggingFace mirror:
