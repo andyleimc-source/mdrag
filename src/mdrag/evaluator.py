@@ -160,10 +160,10 @@ def _format_report(
     labels = [lbl for lbl, _, _ in indexes]
 
     lines: list[str] = []
-    lines.append(f"# mdrag Evaluation Report\n")
+    lines.append("# mdrag Evaluation Report\n")
     lines.append(f"- Top-K: **{top_k}**")
     lines.append(f"- Queries: **{len(queries)}**")
-    lines.append(f"- Indexes compared: {', '.join(f'`{l}` ({m})' for l, _, m in indexes)}\n")
+    lines.append(f"- Indexes compared: {', '.join(f'`{lbl}` ({m})' for lbl, _, m in indexes)}\n")
 
     if len(labels) == 2:
         base_label, new_label = labels
@@ -171,7 +171,7 @@ def _format_report(
         new_m = _metrics(results[new_label], top_k)
         recall_delta = (new_m["recall"] - base_m["recall"]) * 100
         mrr_delta = new_m["mrr"] - base_m["mrr"]
-        lines.append(f"## TL;DR\n")
+        lines.append("## TL;DR\n")
         lines.append(
             f"`{new_label}` vs `{base_label}`: "
             f"Recall@{top_k} **{base_m['recall']*100:.1f}% → {new_m['recall']*100:.1f}%** "
@@ -181,14 +181,14 @@ def _format_report(
 
     kinds = sorted({q.kind for q in queries})
 
-    lines.append(f"## Overall\n")
+    lines.append("## Overall\n")
     header = ["Metric"] + labels
     lines.append("| " + " | ".join(header) + " |")
     lines.append("|" + "|".join(["---"] * len(header)) + "|")
 
     overall = {lbl: _metrics(results[lbl], top_k) for lbl in labels}
-    recall_row = ["Recall@" + str(top_k)] + [f"{overall[l]['recall']*100:.1f}% ({overall[l]['hits']}/{overall[l]['total']})" for l in labels]
-    mrr_row = ["MRR"] + [f"{overall[l]['mrr']:.3f}" for l in labels]
+    recall_row = ["Recall@" + str(top_k)] + [f"{overall[lbl]['recall']*100:.1f}% ({overall[lbl]['hits']}/{overall[lbl]['total']})" for lbl in labels]
+    mrr_row = ["MRR"] + [f"{overall[lbl]['mrr']:.3f}" for lbl in labels]
     lines.append("| " + " | ".join(recall_row) + " |")
     lines.append("| " + " | ".join(mrr_row) + " |")
 
@@ -198,10 +198,10 @@ def _format_report(
         lines.append(f"\n## Subset: `{kind}` ({m[labels[0]]['total']} queries)\n")
         lines.append("| " + " | ".join(header) + " |")
         lines.append("|" + "|".join(["---"] * len(header)) + "|")
-        lines.append("| " + " | ".join(["Recall@" + str(top_k)] + [f"{m[l]['recall']*100:.1f}% ({m[l]['hits']}/{m[l]['total']})" for l in labels]) + " |")
-        lines.append("| " + " | ".join(["MRR"] + [f"{m[l]['mrr']:.3f}" for l in labels]) + " |")
+        lines.append("| " + " | ".join(["Recall@" + str(top_k)] + [f"{m[lbl]['recall']*100:.1f}% ({m[lbl]['hits']}/{m[lbl]['total']})" for lbl in labels]) + " |")
+        lines.append("| " + " | ".join(["MRR"] + [f"{m[lbl]['mrr']:.3f}" for lbl in labels]) + " |")
 
-    lines.append(f"\n## Per-Query Results\n")
+    lines.append("\n## Per-Query Results\n")
     lines.append("Rank shown is the position of the first expected document (— = not in top-K).\n")
     header = ["#", "Kind", "Query"] + [f"{lbl} rank" for lbl in labels]
     lines.append("| " + " | ".join(header) + " |")
