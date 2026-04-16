@@ -23,6 +23,120 @@ def serve() -> None:
     run()
 
 
+@main.command()
+def doctor() -> None:
+    """Diagnose the local mdrag installation and report issues."""
+    import platform
+    import shutil
+    import sys
+    from .indexer import SCHEMA_VERSION, read_meta
+    from .retrieval import BM25_FILENAME
+
+    ok = "✅"
+    warn = "⚠️ "
+    bad = "❌"
+    problems = 0
+
+    click.echo(f"{ok} Python: {sys.version.split()[0]} ({platform.platform()})")
+    click.echo(f"{ok} mdrag: {__version__}")
+
+    # Registry
+    reg = VaultRegistry()
+    vaults = reg.list()
+    click.echo(f"{ok} Registry: {reg.path} ({len(vaults)} vault{'s' if len(vaults) != 1 else ''})")
+
+    if not vaults:
+        click.echo("   (no vaults registered — run: mdrag vault add <name> <path>)")
+
+    # Per-vault checks
+    for v in vaults:
+        click.echo(f"\n📂 Vault '{v.name}' → {v.path}")
+        if not v.root.is_dir():
+            click.echo(f"   {bad} directory missing")
+            problems += 1
+            continue
+
+        # Data dir
+        if not v.vector_dir.is_dir():
+            click.echo(f"   {warn} no index yet (run: mdrag vault reindex {v.name} --full)")
+            problems += 1
+            continue
+        click.echo(f"   {ok} data dir: {v.vector_dir}")
+
+        # Meta
+        meta = read_meta(v.vector_dir)
+        if not meta:
+            click.echo(f"   {warn} meta.json missing — full rebuild recommended")
+            problems += 1
+        else:
+            disk_ver = meta.get("schema_version")
+            if disk_ver != SCHEMA_VERSION:
+                click.echo(f"   {bad} schema v{disk_ver} vs code v{SCHEMA_VERSION} — reindex --full required")
+                problems += 1
+            else:
+                click.echo(f"   {ok} schema: v{disk_ver}")
+            disk_model = meta.get("model")
+            if disk_model and disk_model != v.model:
+                click.echo(f"   {bad} model mismatch: index={disk_model} vs registry={v.model}")
+                problems += 1
+            else:
+                click.echo(f"   {ok} model: {v.model}")
+
+        # BM25
+        bm25_path = v.vector_dir / BM25_FILENAME
+        if bm25_path.is_file():
+            click.echo(f"   {ok} BM25 index: {bm25_path.stat().st_size // 1024} KB")
+        else:
+            click.echo(f"   {warn} BM25 store missing (hybrid will fall back to vector-only)")
+            problems += 1
+
+        # Freshness: any .md newer than last indexed_at?
+        if v.indexed_at:
+            try:
+                from datetime import datetime
+                indexed_dt = datetime.fromisoformat(v.indexed_at)
+                stale = 0
+                for p in v.root.rglob("*.md"):
+                    try:
+                        if datetime.fromtimestamp(p.stat().st_mtime) > indexed_dt:
+                            stale += 1
+                    except OSError:
+                        pass
+                if stale:
+                    click.echo(f"   {warn} {stale} file(s) newer than last index (run: mdrag vault reindex {v.name})")
+                else:
+                    click.echo(f"   {ok} up to date (last indexed {v.indexed_at})")
+            except ValueError:
+                pass
+
+    # Disk usage summary
+    try:
+        total = sum(
+            f.stat().st_size
+            for v in vaults
+            if v.vector_dir.is_dir()
+            for f in v.vector_dir.rglob("*")
+            if f.is_file()
+        )
+        click.echo(f"\n💾 Total index size: {total // (1024*1024)} MB")
+    except OSError:
+        pass
+
+    # MCP binary
+    mdrag_bin = shutil.which("mdrag")
+    if mdrag_bin:
+        click.echo(f"{ok} `mdrag` on PATH: {mdrag_bin}")
+    else:
+        click.echo(f"{warn} `mdrag` not on PATH — MCP clients may fail to launch it")
+        problems += 1
+
+    click.echo("")
+    if problems:
+        click.echo(f"{warn} Found {problems} issue(s). See messages above.")
+        raise SystemExit(1)
+    click.echo(f"{ok} All checks passed.")
+
+
 @main.group()
 def vault() -> None:
     """Manage vaults (registered document directories)."""
@@ -60,7 +174,32 @@ def vault_add(name: str, path: str, model: str, no_index: bool) -> None:
         click.echo("Skipped indexing (--no-index). Run: mdrag vault reindex " + name)
         return
 
+    _preflight_model(model)
     _run_index(reg, name, full=True)
+
+
+def _preflight_model(model_name: str) -> None:
+    """Warn the user up front if the embedding model isn't cached yet.
+
+    First-time model download is ~100MB and can take a while on slow links; crashing
+    deep inside sentence-transformers with an opaque traceback is a bad first
+    experience. This hints the user what to expect before we start downloading.
+    """
+    try:
+        from huggingface_hub import try_to_load_from_cache
+    except ImportError:
+        return
+
+    try:
+        cached = try_to_load_from_cache(repo_id=model_name, filename="config.json")
+    except Exception:
+        cached = None
+
+    if cached is None:
+        click.echo(
+            f"ℹ️  Embedding model '{model_name}' not cached — will download on first use (~100MB).\n"
+            f"   Slow or failing download?  export HF_ENDPOINT=https://hf-mirror.com  and retry."
+        )
 
 
 @vault.command("list")
@@ -190,7 +329,7 @@ def eval_cmd(
 
 
 def _run_index(reg: VaultRegistry, name: str, full: bool) -> None:
-    from .indexer import build_index
+    from .indexer import build_index, SchemaMismatchError
 
     try:
         v = reg.get(name)
@@ -204,6 +343,10 @@ def _run_index(reg: VaultRegistry, name: str, full: bool) -> None:
             vector_dir=v.vector_dir,
             model_name=v.model,
             full_rebuild=full,
+        )
+    except SchemaMismatchError as e:
+        raise click.ClickException(
+            f"{e}\nHint: mdrag vault reindex {name} --full"
         )
     except Exception as e:
         raise click.ClickException(f"indexing failed: {e}")

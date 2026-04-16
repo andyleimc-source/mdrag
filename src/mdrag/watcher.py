@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import sys
 import threading
+import time
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
 
@@ -14,6 +16,25 @@ from .config import Vault, VaultRegistry
 from .indexer import DEFAULT_EXCLUDES, build_index
 
 DEBOUNCE_SECONDS = 1.5
+
+
+@dataclass
+class WatcherStatus:
+    """Tracks per-vault reindex health so MCP tools can surface failures."""
+    last_success_at: str | None = None
+    last_error_at: str | None = None
+    last_error_message: str | None = None
+    consecutive_errors: int = 0
+
+
+# Global status map: vault name → latest watcher health.
+# Read by server.list_vaults so clients see watcher failures instead of silently
+# querying stale data.
+STATUS: dict[str, WatcherStatus] = {}
+
+
+def get_status(vault_name: str) -> WatcherStatus:
+    return STATUS.setdefault(vault_name, WatcherStatus())
 
 
 class _VaultWatcher:
@@ -45,6 +66,8 @@ class _VaultWatcher:
             self._timer.start()
 
     def _reindex(self) -> None:
+        status = get_status(self.vault.name)
+        now = time.strftime("%Y-%m-%dT%H:%M:%S")
         try:
             stats = build_index(
                 vault_path=self.vault.root,
@@ -52,6 +75,10 @@ class _VaultWatcher:
                 model_name=self.vault.model,
                 full_rebuild=False,
             )
+            status.last_success_at = now
+            status.last_error_at = None
+            status.last_error_message = None
+            status.consecutive_errors = 0
             print(
                 f"[mdrag] auto-reindexed '{self.vault.name}': "
                 f"{stats.updated_docs} docs updated ({stats.total_chunks} chunks)",
@@ -60,7 +87,14 @@ class _VaultWatcher:
             if self._on_reindex:
                 self._on_reindex(self.vault.name)
         except Exception as e:
-            print(f"[mdrag] watcher error on '{self.vault.name}': {e}", file=sys.stderr)
+            status.last_error_at = now
+            status.last_error_message = f"{type(e).__name__}: {e}"
+            status.consecutive_errors += 1
+            print(
+                f"[mdrag] watcher error on '{self.vault.name}' "
+                f"(consecutive={status.consecutive_errors}): {e}",
+                file=sys.stderr,
+            )
 
 
 class _Handler(FileSystemEventHandler):

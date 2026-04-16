@@ -63,15 +63,25 @@ def _get_bm25(vault: Vault) -> BM25Store | None:
 
 @mcp.tool()
 def list_vaults() -> str:
-    """列出所有已注册的 vault（name / path / 文档数 / 上次索引时间）。"""
+    """列出所有已注册的 vault（name / path / 文档数 / 上次索引时间 / watcher 状态）。"""
+    from .watcher import STATUS
+
     vaults = _get_registry().list()
     if not vaults:
         return "No vaults registered. Run: mdrag vault add <name> <path>"
     lines = []
     for v in vaults:
-        lines.append(
-            f"- {v.name}: {v.path} ({v.doc_count} docs, model={v.model}, indexed={v.indexed_at or 'never'})"
+        base = (
+            f"- {v.name}: {v.path} ({v.doc_count} docs, model={v.model}, "
+            f"indexed={v.indexed_at or 'never'})"
         )
+        status = STATUS.get(v.name)
+        if status and status.consecutive_errors > 0:
+            base += (
+                f"\n  ⚠️  watcher failing: {status.last_error_message} "
+                f"(consecutive={status.consecutive_errors}, since={status.last_error_at})"
+            )
+        lines.append(base)
     return "\n".join(lines)
 
 
@@ -121,6 +131,7 @@ def search(vault: str, query: str, top_k: int = 5, tags: str = "") -> str:
             "summary": (r.get("summary") or "")[:200],
             "tags": parsed_tags,
             "score": round(r.get("_rrf", 0), 4) if score_key == "_rrf" else round(r.get("_distance", 0), 4),
+            "match_reason": r.get("_match_reason", "unknown"),
         })
     return json.dumps(results, ensure_ascii=False, indent=2)
 

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "mdrag"
-version = "0.1.0"
+version = "0.3.0"
 description = "Give any local Markdown folder a semantic-search MCP server"
 readme = "README.md"
 license = {text = "MIT"}
@@ -31,6 +31,7 @@ dependencies = [
     "pyarrow>=16.0",
     "pathspec>=0.12",
     "watchdog>=4.0",
+    "filelock>=3.12",
 ]
 
 [project.optional-dependencies]

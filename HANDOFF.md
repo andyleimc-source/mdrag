@@ -8,7 +8,7 @@ Snapshot of the current state of mdrag after three rounds of work. Written so th
 
 A local MCP server that turns any Markdown folder into a semantic-search vault. Fully offline, no API keys. See `README.md` for the user-facing pitch.
 
-**Current version**: 0.1.0 (not yet published to PyPI)
+**Current version**: 0.3.0 (not yet built; previous `dist/mdrag-0.2.0*` is stale — rebuild before upload)
 **Repo**: https://github.com/andyleimc-source/mdrag
 **Author vault (dev target)**: `/Users/andy/Desktop/wiki/docs/` — 408 markdown docs, bilingual (Chinese + English)
 
@@ -61,6 +61,34 @@ src/mdrag/
 - **Fusion strategy**: dedupe chunks to doc-level rankings first, then `best_rank_fuse` (take the better of either side's rank; agreement across both lists gets a -1 rank bonus). Tried plain RRF first; it averaged away single-side strong signals. Best-rank keeps Q12 findable via BM25 even when vector buries it.
 - `mdrag eval` spec format extended: `label=path[:mode]` where `mode ∈ {hybrid, vector, bm25}`. Lets you isolate contributions.
 
+### Round 5 — stability & UX hardening (v0.3.0)
+
+**Problem**: v0.2.0 hit 100% on eval but had silent-failure modes. Watcher errors only went to stderr; concurrent reindex could corrupt LanceDB; BM25 drift after delete-only reindex; no schema version for future migrations; no regression protection.
+
+**Solution**:
+- `watcher.py` tracks per-vault `last_error_message` + `consecutive_errors`; `list_vaults` MCP tool shows failing watchers with ⚠️.
+- `indexer.py` acquires `FileLock` on `<vector_dir>/.mdrag.lock` with 300s timeout. Two concurrent `build_index` calls now serialize instead of racing.
+- `meta.json` (`schema_version=2`, `model=<name>`, `updated_at`) written on every reindex. Incremental runs against mismatched version/model raise `SchemaMismatchError` with an actionable hint.
+- BM25 rebuilt on both add and delete paths (previously only on add).
+- `mdrag doctor` command: end-to-end health check, exits non-zero on any issue.
+- `vault add` preflights the embedding-model cache and warns about HF endpoint if not cached.
+- `match_reason` added to `search()` results so AI clients can see why a doc matched.
+- GitHub Actions CI (ruff + pytest on 3.10/3.11/3.12). `test_eval_regression.py` runs a deterministic fake-embedder hybrid search on the sample vault — catches plumbing regressions before full eval on the real vault.
+
+Result: 47 tests pass (was 35). No eval regression (hybrid Recall@5 still 100%).
+
+### Round 4 — eval-driven quality push to 100% (v0.2.0)
+
+**Problem**: v0.1.0 hybrid Recall@5 stuck at 80% with three queries always failing (Q1 "核心功能介绍", Q3 "HAP 产品与低代码平台的区别", Q12 "38 种字段控件").
+
+**Solution** (all in `retrieval.py`):
+- **Rare-term handling**: queries containing digit strings detected via `_has_rare_terms`; fusion splits into docs-shared-by-both-sides (best-rank fused with double BM25) and BM25-only docs (injected at their BM25 rank position). Fixes Q12 — BM25-only strong hits no longer get buried.
+- **Comparison query expansion**: `_expand_query` appends cross-lingual synonyms ("区别" → "difference vs comparison 对比") to the vector query before embedding. Fixes Q3.
+- **Overview chunk tiebreaker**: in `_dedupe_chunks_to_doc_ranking`, ties broken in favor of `chunk_id == 0`.
+- **Frontmatter cleanup** (non-code): four docs had summaries filled with PPT slide noise/table rows/image markdown. Rewrote summaries to real conceptual overviews — this is what unblocked Q1 on BM25.
+
+Result: hybrid Recall@5 **80% → 100%**, MRR 0.619 → 0.819. Needle subset 90% → 100%.
+
 ### Round 3 — productization for OSS release (`17fd560`)
 
 **Problem**: earlier rounds had a hardcoded `MAX_FILE_SIZE = 200_000` to filter out my personal noise files (5.5MB sales logs, WeChat group exports). Unacceptable for an OSS tool — other users' corpora look completely different.
@@ -79,11 +107,11 @@ Measured on `tests/eval-queries.yaml` (15 queries: 5 broad "general" + 10 deep "
 | Mode | Recall@5 overall | Needle (10q) | General (5q) | MRR |
 |---|---|---|---|---|
 | baseline (old 500-char index) | 13.3% | 0% | 40% | 0.10 |
-| vector only (new chunked) | 73.3% | 80% | 60% | 0.54 |
-| bm25 only | 80.0% | 100% | 40% | 0.64 |
-| **hybrid (default)** | **80.0%** | 90% | 60% | 0.62 |
+| vector only (v0.2.0) | 80.0% | 80% | 80% | 0.64 |
+| bm25 only (v0.2.0) | 93.3% | 100% | 80% | 0.82 |
+| **hybrid (default, v0.2.0)** | **100.0%** | **100%** | **100%** | **0.82** |
 
-Hybrid is the balanced default: never loses big on either query type. BM25 alone peaks on needle but regresses general. Vector alone is the opposite.
+Hybrid is now strictly dominant on this suite. BM25 alone is almost as good on needle queries (exact terms) but misses some general/conceptual queries that the overview chunk catches.
 
 **How to re-run the eval** (always do this before claiming an improvement):
 ```bash
@@ -99,13 +127,14 @@ mdrag eval tests/eval-queries.yaml \
 
 ---
 
-## Open issues — things eval still flags
+## Open issues
 
-These are the rows in `EVAL_REPORT.md` that come back as `—` for every mode. Real signal for what to work on next.
+The v0.1.0 failures (Q1 / Q3 / Q12) are all resolved in v0.2.0 — see Round 4 above. The suite is now at 100% hybrid Recall@5. **Expand the eval suite** before declaring anything "done" based on these numbers; 15 queries is thin and any structural change should be validated against a larger set.
 
-- **Q1 "明道云核心功能介绍"** — all chunked modes miss this. Broad concept query where baseline's single-vector-per-doc design accidentally helped (the overview chunk gets diluted by many specific-feature chunks from other docs). Likely fix: boost overview chunks' score in ranking, or switch to a larger model with longer context.
-- **Q3 "HAP 产品与低代码平台的区别"** — comparison query, no mode finds the specific doc because "comparison" as a semantic intent is broadly distributed across the corpus. Probably needs either a comparison-oriented query expansion step or a re-ranker.
-- **Q12 "明道云 38 种字段控件类型易用性设计"** — BM25 finds at #3 but hybrid pushes it out of top-5 because vector's top picks crowd. Worth experimenting with a smaller RRF k or giving BM25 higher weight for queries with rare-term signatures.
+Known gaps not covered by the current eval:
+- **Non-Markdown source formats** (PDF / DOCX / PPTX / XLSX) — intentional non-feature. Convert upstream with pandoc / Docling / markitdown and point mdrag at the resulting `.md`. See the FAQ in `README.md` for the recommended workflow.
+- **Cross-vault search** — `search(vaults=[...], ...)`. Still useful; still blocked on not having an eval query that demonstrates the gap.
+- **Multi-hop / reasoning queries** — not in the eval suite at all. If users report failures here, extend `tests/eval-queries.yaml` first, then decide on a re-ranker.
 
 ---
 
@@ -157,9 +186,11 @@ claude mcp add mdrag --scope user -- mdrag serve
 
 ## Next up — recommended priorities
 
-1. **Chase down Q1/Q3/Q12 misses** — real failures the eval flags. Overview-chunk score boost is the cheapest first attempt (~5 lines in `retrieval.py`). Validation is free: rerun eval.
-2. **PyPI release** — nothing blocks it. Bump version in `pyproject.toml`, write a CHANGELOG section covering the three feature rounds, `python -m build && twine upload`. README is already user-facing.
-3. **Optional: reranker (bge-reranker-base)** — was in the P2 pile. Worth it only if we can't push hybrid past 85% with cheaper tweaks. ~200ms latency tax per query.
-4. **Optional: multi-vault search** — `search(vaults=["a","b"], ...)`. Popular ask in RAG tools; trivial to implement given the doc-level fusion we already have.
+1. **Ship v0.3.0 to PyPI** — rebuild dist (`python -m build`), `twine check`, `twine upload`. CHANGELOG.md is up to date through v0.3.0.
+2. **Grow the eval suite to ≥50 queries** — add multi-hop queries, English-only queries against bilingual docs, negation/exclusion queries, queries where the expected doc has sparse frontmatter. Current 15 is too thin for statistical claims. Consider semi-automating via a small LLM generating candidate queries from the corpus, human-filtered.
+3. **E5: vault-level config overrides** — `MAX_CHARS=600`, `RRF_K=60`, `DEBOUNCE_SECONDS=1.5` are hardcoded. Add optional `config:` block in `vaults.yaml` per-vault; `mdrag vault config NAME KEY VAL` CLI. Low urgency, but unblocks power users tuning per-corpus.
+4. **Optional: reranker (bge-reranker-base)** — only revisit if the expanded eval suite uncovers cases hybrid can't solve. ~200ms latency tax per query.
+5. **Optional: multi-vault search** — `search(vaults=["a","b"], ...)`. Trivial given doc-level fusion already exists; blocked on lack of a cross-vault eval query.
+6. **Optional: incremental BM25** — currently rebuilt full on every reindex. Fine up to a few thousand docs; worth patching the inverted index incrementally once a vault crosses ~10K docs.
 
-Don't commit to 3 or 4 without an eval query demonstrating the gap they'd close.
+Don't commit to 4, 5, or 6 without an eval query demonstrating the gap they'd close.
