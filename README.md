@@ -102,8 +102,11 @@ mdrag vault list                     Show all vaults
 mdrag vault info NAME                Show vault details
 mdrag vault reindex NAME [--full]    Re-index (incremental or full)
 mdrag vault remove NAME [--purge]    Unregister (and optionally delete .mdrag/)
+mdrag search VAULT QUERY [-k N]      Search a vault from the shell (debugging)
 mdrag eval QUERIES INDEX_SPECS...    Compare retrieval quality across indexes
 ```
+
+> `mdrag search` runs the same hybrid retrieval as the MCP `search` tool — useful for verifying a reindex or debugging without an MCP client. Add `--json` for machine-readable output, `--tags a,b` to filter.
 
 Common options:
 - `--model MODEL_NAME` on `vault add` — pick a different embedding model

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.2 (2026-04-29)
+
+### Added
+
+- **`mdrag search VAULT QUERY` CLI command** — runs the same hybrid retrieval as the MCP
+  `search` tool, for shell-based verification after a reindex or debugging without an MCP
+  client. Supports `-k/--top-k`, `--tags`, and `--json`.
+
 ## 0.3.1 (2026-04-16)
 
 ### Docs

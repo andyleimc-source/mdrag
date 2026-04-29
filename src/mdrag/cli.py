@@ -263,6 +263,101 @@ def vault_info(name: str) -> None:
     click.echo(f"Data dir:   {v.vector_dir}")
 
 
+@main.command("search")
+@click.argument("vault_name")
+@click.argument("query")
+@click.option("-k", "--top-k", default=5, show_default=True, type=int, help="Number of results.")
+@click.option("--tags", default="", help="Filter by tags (comma-separated).")
+@click.option("--json", "as_json", is_flag=True, help="Emit raw JSON instead of formatted text.")
+def search_cmd(vault_name: str, query: str, top_k: int, tags: str, as_json: bool) -> None:
+    """Search a vault from the CLI (debugging / verification).
+
+    The MCP `search` tool is the primary interface for AI clients; this command
+    exposes the same retrieval path for shell use — handy after a reindex to
+    confirm new docs are findable.
+    """
+    import json as _json
+
+    import lancedb
+    from sentence_transformers import SentenceTransformer
+
+    from .indexer import TABLE_NAME
+    from .retrieval import BM25_FILENAME, BM25Store, hybrid_search_docs
+
+    reg = VaultRegistry()
+    try:
+        v = reg.get(vault_name)
+    except KeyError as e:
+        raise click.ClickException(str(e))
+
+    db = lancedb.connect(str(v.vector_dir))
+    if TABLE_NAME not in db.table_names():
+        raise click.ClickException(
+            f"vault '{vault_name}' has no index. Run: mdrag vault reindex {vault_name}"
+        )
+    table = db.open_table(TABLE_NAME)
+    model = SentenceTransformer(v.model)
+    bm25_path = v.vector_dir / BM25_FILENAME
+    bm25 = BM25Store.load(bm25_path) if bm25_path.is_file() else None
+
+    fetch_limit = max(top_k * 20, 100)
+    docs = hybrid_search_docs(table, bm25, model, query, fetch_limit)
+
+    if tags.strip():
+        tag_filters = [t.strip().strip('"') for t in tags.split(",") if t.strip()]
+        def _has_tag(row):
+            try:
+                raw = row.get("tags") or "[]"
+                parsed = _json.loads(raw) if isinstance(raw, str) else raw
+            except Exception:
+                return False
+            return any(t in parsed for t in tag_filters)
+        docs = [r for r in docs if _has_tag(r)]
+
+    ranked = docs[:top_k]
+
+    if as_json:
+        out = []
+        for r in ranked:
+            try:
+                parsed_tags = _json.loads(r.get("tags", "[]"))
+            except Exception:
+                parsed_tags = []
+            score_key = "_rrf" if "_rrf" in r else "_distance"
+            out.append({
+                "title": r.get("title"),
+                "path": r.get("doc_path"),
+                "heading_path": r.get("heading_path") or "",
+                "chunk_text": (r.get("chunk_text") or "")[:300],
+                "summary": (r.get("summary") or "")[:200],
+                "tags": parsed_tags,
+                "score": round(r.get(score_key, 0), 4),
+                "match_reason": r.get("_match_reason", "unknown"),
+            })
+        click.echo(_json.dumps(out, ensure_ascii=False, indent=2))
+        return
+
+    if not ranked:
+        click.echo("(no results)")
+        return
+
+    for i, r in enumerate(ranked, 1):
+        score_key = "_rrf" if "_rrf" in r else "_distance"
+        score = r.get(score_key, 0)
+        title = r.get("title") or "(untitled)"
+        path = r.get("doc_path") or ""
+        heading = r.get("heading_path") or ""
+        reason = r.get("_match_reason", "unknown")
+        snippet = (r.get("chunk_text") or "").strip().replace("\n", " ")
+        if len(snippet) > 200:
+            snippet = snippet[:200] + "…"
+        click.echo(f"{i}. {title}  [score={score:.4f}, {reason}]")
+        click.echo(f"   {path}" + (f"  §  {heading}" if heading else ""))
+        if snippet:
+            click.echo(f"   {snippet}")
+        click.echo("")
+
+
 @main.command("eval")
 @click.argument("queries_yaml", type=click.Path(exists=True, dir_okay=False))
 @click.argument("index_specs", nargs=-1, required=True)
